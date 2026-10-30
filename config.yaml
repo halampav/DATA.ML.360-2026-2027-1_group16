@@ -5,3 +5,21 @@ team:
     - {name: "Jindřich Halabala", personal_number: 154807984}
     - {name: "Pavel Halama", personal_number: 154808080}
     - {name: "Amala Vijayan Pillai Soudha", personal_number: 153106068}
+
+load:
+  separator: "::"
+  encoding: "latin-1"
+  files:
+    ratings:
+      filename: ratings.dat
+      columns: [user_id, item_id, rating, ts]
+    movies:
+      filename: movies.dat
+      columns: [item_id, title, genres]
+    users:
+      filename: users.dat
+      columns: [user_id, gender, age, occupation, zip]
+
+split:
+  val_frac: 0.1
+  test_frac: 0.1
