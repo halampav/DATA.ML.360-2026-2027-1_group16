@@ -107,3 +107,13 @@ def evaluate_model(recommendations, relevant_by_user, catalogue, k):
         "users_evaluated": count
     }
 
+
+
+# Evaluate a recommender model
+
+def evaluate_recommender(model, train, val, catalogue, k, threshold):
+    positive = val[val["rating"] >= threshold]
+    relevant = positive.groupby("user_id")["item_id"].apply(set).to_dict()
+    users = sorted(set(relevant) & set(train["user_id"]))
+    recs = {u: model.rank(u, k) for u in users}
+    return evaluate_model(recs, relevant, catalogue, k)
