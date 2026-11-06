@@ -114,6 +114,25 @@ def evaluate_model(recommendations, relevant_by_user, catalogue, k):
 def evaluate_recommender(model, train, val, catalogue, k, threshold):
     positive = val[val["rating"] >= threshold]
     relevant = positive.groupby("user_id")["item_id"].apply(set).to_dict()
-    users = sorted(set(relevant) & set(train["user_id"]))
+
+    # Every user with at least one relevant movie is evaluated, also users with no train
+    # ratings (cold start). A model that cannot recommend anything for them returns [] and
+    # scores 0 for them, so the numbers show that weakness instead of hiding it.
+    users = sorted(relevant)
     recs = {u: model.rank(u, k) for u in users}
-    return evaluate_model(recs, relevant, catalogue, k)
+    results = evaluate_model(recs, relevant, catalogue, k)
+
+    # The same metrics separately for users known from train (warm) and new users (cold)
+    train_users = set(train["user_id"])
+    segments = {
+        "warm": {u: r for u, r in recs.items() if u in train_users},
+        "cold": {u: r for u, r in recs.items() if u not in train_users},
+    }
+    for segment, segment_recs in segments.items():
+        if len(segment_recs) == 0:
+            continue
+        segment_results = evaluate_model(segment_recs, relevant, catalogue, k)
+        for name in ["precision", "recall", "ndcg", "users_evaluated"]:
+            results[name + "_" + segment] = segment_results[name]
+
+    return results

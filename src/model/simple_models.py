@@ -83,9 +83,11 @@ class _KNN(RecommendationModel):
     """Shared parts of UserKNN and ItemKNN; subclasses implement `_scorer`."""
 
     def __init__(self, k: int = 25, similarity_measure: str = "cosine",
-                 gamma: int | None = 50) -> None:
+                 gamma: int | None = 50, min_support: int = 20) -> None:
         """`gamma`: similarities based on fewer co-ratings than this are scaled
-        down by n_co_rated / gamma (significance weighting). None turns it off."""
+        down by n_co_rated / gamma (significance weighting). None turns it off.
+        `min_support`: `rank` only recommends movies with at least this many ratings in train.
+        """
         super().__init__()
         if similarity_measure not in RowSimilarity.MEASURES:
             raise ValueError(f"Unknown similarity measure: {similarity_measure}, "
@@ -93,6 +95,7 @@ class _KNN(RecommendationModel):
         self.k = k
         self.sim = similarity_measure
         self.gamma = gamma
+        self.min_support = min_support
         self.data: Dataset | None = None
 
     def train(self, data: Dataset) -> None:
@@ -101,6 +104,9 @@ class _KNN(RecommendationModel):
         # Get CSC and CSR rating matrices for fast lookup
         self.matrix, self.user_ids, self.item_ids = data.rating_matrix()
         self.matrix_csc = self.matrix.tocsc()
+
+        # Number of train ratings of each movie (length of its CSC column)
+        self.n_item_ratings = np.diff(self.matrix_csc.indptr)
 
     def _scorer(self, u: int) -> Callable[[int], float]:
         """Returns a function that predicts the rating of user row `u` for item column i.
@@ -121,7 +127,8 @@ class _KNN(RecommendationModel):
     def rank(self, user: int, n: int) -> list[int]:
         """Top-n movie ids for `user`, scored with the same formula as `predict`.
 
-        Skips movies the user already rated in train. Returns [] for users unknown in train.
+        Skips movies the user already rated in train and movies with fewer than
+        `min_support` train ratings. Returns [] for users unknown in train.
         """
         if self.data is None:
             raise Exception("Model has not been trained yet")
@@ -130,8 +137,16 @@ class _KNN(RecommendationModel):
         u = self.user_ids.get_loc(user)
         score_func = self._scorer(u)
 
+        # Why min_support: the prediction starts from the movie's (or user's) mean rating, and for
+        # movies with only 1-2 ratings that mean is often 5.0 and is backed by just one or two
+        # neighbours. Such movies then get predicted ratings above every well-known movie and fill
+        # every top-n list (without this filter the median recommended movie had 1 train rating).
+        # A predicted rating is fine for scoring one given movie, but ranking picks the maximum over
+        # all movies, so it ends up picking the least reliable estimates. Requiring a minimum number
+        # of ratings removes them; with 20 that drops ~20% of movies but only ~0.7% of train ratings.
         seen = set(self.matrix[u].indices)
-        scores = {i: score_func(i) for i in range(len(self.item_ids)) if i not in seen}
+        candidates = [i for i in np.flatnonzero(self.n_item_ratings >= self.min_support) if i not in seen]
+        scores = {i: score_func(i) for i in candidates}
         scores = {i: s for i, s in scores.items() if not np.isnan(s)}
 
         best = sorted(scores, key=scores.get, reverse=True)[:n]
