@@ -65,6 +65,14 @@ python run_all.py --data-dir data/ml-1m
 |---|---|---|
 | `--data-dir` | Folder with the MovieLens files. | None |
 | `--config` | Path to the YAML config file. | `config.yaml` |
+| `--output-dir` | Folder for the results. | `results` |
+
+The command splits the data, trains the final baseline configurations from `config.yaml` on
+train + validation, evaluates them on the test split, and writes `results/results.csv`. Its columns
+match the "Part 1 - Baselines" sheet of the results template.
+
+The hyperparameters in `config.yaml` were chosen on the validation split in `notebooks/02_tuning.ipynb`.
+The data characterization is in `notebooks/01_data_analysis.ipynb`.
 
 ## Configuration (`config.yaml`)
 

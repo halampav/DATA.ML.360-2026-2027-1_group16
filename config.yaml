@@ -23,3 +23,22 @@ load:
 split:
   val_frac: 0.1
   test_frac: 0.1
+
+evaluation:
+  k: 10                   # cut-off of Precision@k, Recall@k, NDCG@k and catalogue coverage
+  relevance_threshold: 4  # a test rating >= this counts as relevant
+
+# Final configurations, chosen on validation in notebooks/02_tuning.ipynb.
+# run_all.py trains each of them on train + validation and evaluates it on test.
+models:
+  most_popular:
+    # Several variants, as the assignment asks; the first one had the best validation NDCG@10
+    - {only_positive: true, positive_threshold: 4, window_days: 7}
+    - {only_positive: true, positive_threshold: 4, window_days: null}
+    - {only_positive: false, positive_threshold: 4, window_days: 7}
+    - {only_positive: false, positive_threshold: 4, window_days: null}
+  item_knn:
+    k: 13
+    similarity_measure: cosine
+    gamma: null       # no significance weighting
+    min_support: 20   # see notebooks/02_tuning.ipynb, section 4
