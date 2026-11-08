@@ -24,6 +24,8 @@ split:
   val_frac: 0.1
   test_frac: 0.1
 
+seed: 42  # random ranker in run_all.py; notebooks/02_tuning.ipynb uses the same value for Optuna
+
 evaluation:
   k: 10                   # cut-off of Precision@k, Recall@k, NDCG@k and catalogue coverage
   relevance_threshold: 4  # a test rating >= this counts as relevant

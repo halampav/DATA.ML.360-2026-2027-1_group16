@@ -224,3 +224,6 @@ __marimo__/
 
 # MovieLens 1M prefered folder
 /data/*
+
+# Copy of assignment
+RecSys-Project.pdf

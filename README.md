@@ -61,18 +61,40 @@ The best option is to store it in the git-ignored `data/` folder inside the proj
 python run_all.py --data-dir data/ml-1m
 ```
 
+It takes about 5 minutes.
+
 | Argument | Description | Default |
 |---|---|---|
 | `--data-dir` | Folder with the MovieLens files. | None |
 | `--config` | Path to the YAML config file. | `config.yaml` |
 | `--output-dir` | Folder for the results. | `results` |
 
-The command splits the data, trains the final baseline configurations from `config.yaml` on
-train + validation, evaluates them on the test split, and writes `results/results.csv`. Its columns
-match the "Part 1 - Baselines" sheet of the results template.
+What the command does:
 
-The hyperparameters in `config.yaml` were chosen on the validation split in `notebooks/02_tuning.ipynb`.
-The data characterization is in `notebooks/01_data_analysis.ipynb`.
+1. Splits the data temporally (train / validation / test).
+2. Trains the final baseline configurations from `config.yaml` on train + validation and evaluates
+   them on the test split.
+3. Computes a random and a perfect ranker on the same test users as reference bounds.
+4. Checks our metric implementations (`src/evaluation.py`) against scikit-learn.
+
+Outputs in `results/`:
+
+| File | Content |
+|---|---|
+| `results.csv` | Test results; columns match the "Part 1 - Baselines" sheet of the results template. |
+| `reference_bounds.csv` | Random and perfect ranker on the same test users. |
+| `metric_check.csv` | Largest difference between our metrics and scikit-learn's. |
+
+## Notebooks
+
+The notebooks are committed with their outputs, so they can be read without running anything:
+
+- `notebooks/01_data_analysis.ipynb`: data characterization (the data figures and numbers in the report).
+- `notebooks/02_tuning.ipynb`: hyperparameter tuning on the validation split; the chosen values are in
+  `config.yaml`. Re-running it takes about 3 hours.
+
+The random seed is `seed: 42` in `config.yaml`; the tuning notebook uses the same value. Both baseline
+models are deterministic.
 
 ## Configuration (`config.yaml`)
 

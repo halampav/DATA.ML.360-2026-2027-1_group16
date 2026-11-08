@@ -1,6 +1,6 @@
 Model,Variant / settings,Similarity,k,Precision@10,Recall@10,NDCG@10,Catalogue coverage,Seed,Notes
-MostPopular,"last 7 days, only ratings >= 4",,,0.1961,0.0665,0.2161,0.0322,-,deterministic (no randomness); selected on validation; NDCG@10 users with history: 0.2104 (n=1159); NDCG@10 new users: 0.4410 (n=29)
-MostPopular,"all-time, only ratings >= 4",,,0.2009,0.0573,0.2183,0.0363,-,deterministic (no randomness); alternative variant; NDCG@10 users with history: 0.2121 (n=1159); NDCG@10 new users: 0.4652 (n=29)
-MostPopular,"last 7 days, all ratings",,,0.1935,0.0657,0.2158,0.0283,-,deterministic (no randomness); alternative variant; NDCG@10 users with history: 0.2098 (n=1159); NDCG@10 new users: 0.4554 (n=29)
-MostPopular,"all-time, all ratings",,,0.1918,0.0525,0.207,0.0379,-,deterministic (no randomness); alternative variant; NDCG@10 users with history: 0.2007 (n=1159); NDCG@10 new users: 0.4588 (n=29)
-ItemKNN,"mean-centred prediction, no significance weighting, min_support=20",cosine,13,0.0902,0.0309,0.096,0.1604,-,deterministic (no randomness); k and similarity tuned on validation; NDCG@10 users with history: 0.0984 (n=1159); NDCG@10 new users: 0.0000 (n=29)
+MostPopular,"last 7 days, only ratings >= 4",,,0.1961,0.0665,0.2161,0.0322,-,deterministic; selected on validation; NDCG@10 users with history: 0.2104 (n=1159); NDCG@10 new users: 0.4410 (n=29)
+MostPopular,"all-time, only ratings >= 4",,,0.2009,0.0573,0.2183,0.0363,-,deterministic; alternative variant; NDCG@10 users with history: 0.2121 (n=1159); NDCG@10 new users: 0.4652 (n=29)
+MostPopular,"last 7 days, all ratings",,,0.1935,0.0657,0.2158,0.0283,-,deterministic; alternative variant; NDCG@10 users with history: 0.2098 (n=1159); NDCG@10 new users: 0.4554 (n=29)
+MostPopular,"all-time, all ratings",,,0.1918,0.0525,0.207,0.0379,-,deterministic; alternative variant; NDCG@10 users with history: 0.2007 (n=1159); NDCG@10 new users: 0.4588 (n=29)
+ItemKNN,"mean-centred prediction, no significance weighting, min_support=20",cosine,13,0.0902,0.0309,0.096,0.1604,-,deterministic; k and similarity tuned on validation; NDCG@10 users with history: 0.0984 (n=1159); NDCG@10 new users: 0.0000 (n=29)

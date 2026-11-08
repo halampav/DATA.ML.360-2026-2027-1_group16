@@ -1,0 +1,7 @@
+recommendations,metric,users,max_abs_difference
+MostPopular,precision,1188,0.0
+MostPopular,recall,1188,0.0
+MostPopular,ndcg,1188,2.7755575615628914e-16
+Random,precision,1188,0.0
+Random,recall,1188,0.0
+Random,ndcg,1188,1.1102230246251565e-16

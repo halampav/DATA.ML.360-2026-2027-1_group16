@@ -7,7 +7,8 @@ import yaml
 
 from src.model import Dataset
 from src.data.splitting import split
-from src.evaluation import evaluate_recommender
+from src.evaluation import (compare_with_sklearn, evaluate_model, evaluate_recommender,
+                            reference_recommendations, relevant_by_user)
 from src.model.simple_models import ItemKNN, MostPopular
 
 
@@ -26,7 +27,8 @@ def most_popular_settings(variant: dict) -> str:
     return f"{window}, {counted}"
 
 
-def result_row(model: str, settings: str, similarity: str, k, metrics: dict, notes: str) -> dict:
+def result_row(model: str, settings: str, similarity: str, k, metrics: dict, notes: str,
+               seed="-") -> dict:
     """One row in the format of the 'Part 1 - Baselines' sheet of the results template."""
     # How the model does on users known from history vs. new users (cold start)
     for segment, name in [("warm", "users with history"), ("cold", "new users")]:
@@ -42,8 +44,8 @@ def result_row(model: str, settings: str, similarity: str, k, metrics: dict, not
         "Recall@10": round(metrics["recall"], 4),
         "NDCG@10": round(metrics["ndcg"], 4),
         "Catalogue coverage": round(metrics["coverage"], 4),
-        "Seed": "-",
-        "Notes": "deterministic (no randomness); " + notes,
+        "Seed": seed,
+        "Notes": notes,
     }
 
 
@@ -63,6 +65,7 @@ def main():
     data_dir = args.data_dir or load_cfg.get("data_dir")
     if data_dir is None:
         raise SystemExit("Pass the MovieLens folder with --data-dir (or set load.data_dir in the config)")
+    data_dir = Path(data_dir)
 
     ds = Dataset.from_config(data_dir, load_cfg)
 
@@ -86,6 +89,8 @@ def main():
     catalogue = set(ds.movies["item_id"])
     k = config["evaluation"]["k"]
     threshold = config["evaluation"]["relevance_threshold"]
+    seed = config["seed"]
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
     def evaluate(model):
         start = time.time()
@@ -102,7 +107,7 @@ def main():
     for i, variant in enumerate(config["models"]["most_popular"]):
         settings = most_popular_settings(variant)
         print(f" - MostPopular ({settings})")
-        notes = "selected on validation" if i == 0 else "alternative variant"
+        notes = "deterministic; " + ("selected on validation" if i == 0 else "alternative variant")
         rows.append(result_row("MostPopular", settings, "", "", evaluate(MostPopular(**variant)), notes))
 
     knn_cfg = config["models"]["item_knn"]
@@ -111,12 +116,41 @@ def main():
     settings = f"mean-centred prediction, {weighting}, min_support={knn_cfg['min_support']}"
     print(f" - ItemKNN (k={knn_cfg['k']}, {knn_cfg['similarity_measure']}, {settings})")
     rows.append(result_row("ItemKNN", settings, knn_cfg["similarity_measure"], knn_cfg["k"],
-                           evaluate(ItemKNN(**knn_cfg)), "k and similarity tuned on validation"))
+                           evaluate(ItemKNN(**knn_cfg)), "deterministic; k and similarity tuned on validation"))
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
     results_path = args.output_dir / "results.csv"
     pd.DataFrame(rows).to_csv(results_path, index=False)
     print(f"\nresults written to {results_path}")
+
+    # A floor and a ceiling on exactly the same test users, to give the numbers above a scale
+    print("\nreference bounds on test:")
+    relevant = relevant_by_user(test, threshold)
+    references = reference_recommendations(history.ratings, test, catalogue, k, threshold, seed)
+    bounds = []
+    for name, recs in references.items():
+        metrics = evaluate_model(recs, relevant, catalogue, k)
+        print(f" - {name}: NDCG@{k}={metrics['ndcg']:.4f} P@{k}={metrics['precision']:.4f} "
+              f"R@{k}={metrics['recall']:.4f} coverage={metrics['coverage']:.4f}")
+        notes = "reference bound, not a model"
+        bounds.append(result_row(name, "reference bound", "", "", metrics, notes,
+                                 seed=seed if name == "Random" else "-"))
+    pd.DataFrame(bounds).to_csv(args.output_dir / "reference_bounds.csv", index=False)
+
+    # Our metrics are self-implemented (src/evaluation.py); check them against scikit-learn on
+    # real test top-10 lists: the selected MostPopular variant (many hits) and the random ranker
+    print("\nmetric check against scikit-learn:")
+    most_popular = MostPopular(**config["models"]["most_popular"][0])
+    most_popular.train(history)
+    check = []
+    for name, recs in [("MostPopular", {user: most_popular.rank(user, k) for user in relevant}),
+                       ("Random", references["Random"])]:
+        for metric, result in compare_with_sklearn(recs, relevant, catalogue, k).items():
+            check.append({"recommendations": name, "metric": metric, **result})
+    check = pd.DataFrame(check)
+    print(check.to_string(index=False))
+    check.to_csv(args.output_dir / "metric_check.csv", index=False)
+    if check["max_abs_difference"].max() > 1e-9:
+        raise SystemExit("our metrics disagree with scikit-learn")
 
 
 if __name__ == "__main__":
