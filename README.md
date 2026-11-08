@@ -9,6 +9,7 @@ Recommender Systems course project on MovieLens 1M.
 - **Amala Vijayan Pillai Soudha** (153106068)
 
 Repository: https://github.com/halampav/DATA.ML.360-2026-2027-1_group16
+Excel with results: https://drive.google.com/file/d/12fiw6fWJJNYX4NtnCuRQVqbtq5d1Tx6y/view?usp=sharing
 
 ## Requirements
 
