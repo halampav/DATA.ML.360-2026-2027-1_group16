@@ -44,3 +44,23 @@ models:
     similarity_measure: cosine
     gamma: null       # no significance weighting
     min_support: 20   # see notebooks/02_tuning.ipynb, section 4
+  #TODO: The following values are only default and needs to be tuned
+  user_knn:
+    k: 50
+    similarity_measure: cosine
+    gamma: 50
+    min_support: 20
+  implicit_als:
+    factors: 64
+    regularization: 0.01
+    iterations: 15
+    alpha: 1.0
+    positive_threshold: 4
+    seed: 42
+  implicit_bpr:
+    factors: 64
+    learning_rate: 0.01
+    regularization: 0.01
+    iterations: 100
+    positive_threshold: 4
+    seed: 42
