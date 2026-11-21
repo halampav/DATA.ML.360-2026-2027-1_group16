@@ -80,3 +80,7 @@ models:
 
 part2:
   tuning_trials: 30  # Optuna trials per model in notebooks/03_part2.ipynb, the same budget as ItemKNN in Part 1
+  # src/part2_analysis.py (test evaluation of the tuned models)
+  seeds: [42, 43, 44, 45, 46]   # stochastic models (ALS, BPR, TwoTower) retrained with each seed
+  sparsity_fractions: [0.5, 0.2]  # share of the train + validation ratings kept in the ablation
+  sparsity_seeds: [42, 43, 44]  # one random subsample per seed (also the model seed)

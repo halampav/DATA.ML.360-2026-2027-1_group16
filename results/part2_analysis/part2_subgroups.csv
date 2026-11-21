@@ -1,0 +1,31 @@
+model,dimension,segment,users_evaluated,precision_at_10,recall_at_10,ndcg_at_10,catalogue_coverage,notes
+MostPopular,User activity,Cold,29,0.4344827586206897,0.07297993221762501,0.4409847801589861,0.0025753283543651817,Warm users split at median 86 training ratings; cold=0
+MostPopular,User activity,High,769,0.18179453836150847,0.06119248021377518,0.20408747614401623,0.03219160442956477,Warm users split at median 86 training ratings; cold=0
+MostPopular,User activity,Low,390,0.20666666666666667,0.07650849465800345,0.22297723365540986,0.006438320885912954,Warm users split at median 86 training ratings; cold=0
+MostPopular,Item popularity,Popular top 20%,1149,0.20278503046127067,0.09380796073455822,0.2291129263283319,0.16087516087516088,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+MostPopular,Item popularity,Long-tail other 80%,1075,0.0,0.0,0.0,0.0,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ItemKNN,User activity,Cold,29,0.0,0.0,0.0,0.0,Warm users split at median 86 training ratings; cold=0
+ItemKNN,User activity,High,769,0.09570871261378412,0.03372834551856935,0.10436483800044379,0.1545197012619109,Warm users split at median 86 training ratings; cold=0
+ItemKNN,User activity,Low,390,0.08615384615384616,0.027648368267468717,0.08661056397095925,0.07416945660571723,Warm users split at median 86 training ratings; cold=0
+ItemKNN,Item popularity,Popular top 20%,1149,0.07745865970409051,0.03440980072716925,0.08268131097790536,0.3758043758043758,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ItemKNN,Item popularity,Long-tail other 80%,1075,0.016930232558139538,0.016036400274132508,0.021703110442334823,0.10334835801674179,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+UserKNN,User activity,Cold,29,0.0,0.0,0.0,0.0,Warm users split at median 86 training ratings; cold=0
+UserKNN,User activity,High,769,0.15708712613784134,0.04448821420721343,0.17587945822316428,0.03991758949266031,Warm users split at median 86 training ratings; cold=0
+UserKNN,User activity,Low,390,0.17153846153846156,0.049922961671325414,0.18841426360625982,0.02755601339170744,Warm users split at median 86 training ratings; cold=0
+UserKNN,Item popularity,Popular top 20%,1149,0.16196692776327243,0.06406140672180874,0.18384102999771,0.15057915057915058,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+UserKNN,Item popularity,Long-tail other 80%,1075,0.001488372093023256,0.00045548001248460804,0.0011338166904977358,0.01674179008370895,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ImplicitALS,User activity,Cold,29,0.0,0.0,0.0,0.0,Warm users split at median 86 training ratings; cold=0
+ImplicitALS,User activity,High,769,0.21261378413524057,0.07619697321937476,0.2416945562169508,0.13005408189544168,Warm users split at median 86 training ratings; cold=0
+ImplicitALS,User activity,Low,390,0.20333333333333337,0.07337922318299837,0.2242139517058523,0.07133659541591553,Warm users split at median 86 training ratings; cold=0
+ImplicitALS,Item popularity,Popular top 20%,1149,0.21087902523933857,0.10591615620159638,0.24436754797047333,0.640926640926641,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ImplicitALS,Item popularity,Long-tail other 80%,1075,0.00046511627906976747,0.00010693266962225505,0.00046306629662034747,0.005795235028976175,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ImplicitBPR,User activity,Cold,29,0.0,0.0,0.0,0.0,Warm users split at median 86 training ratings; cold=0
+ImplicitBPR,User activity,High,769,0.19973992197659296,0.06258525541086338,0.22439242935727885,0.13314447592067988,Warm users split at median 86 training ratings; cold=0
+ImplicitBPR,User activity,Low,390,0.22512820512820517,0.0764226873175068,0.24670296127473046,0.03862992531547772,Warm users split at median 86 training ratings; cold=0
+ImplicitBPR,Item popularity,Popular top 20%,1149,0.2091383812010444,0.0949236508701708,0.23856263319060164,0.6061776061776062,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+ImplicitBPR,Item popularity,Long-tail other 80%,1075,0.0010232558139534884,0.00039911172974873687,0.0008122782990493572,0.014488087572440437,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+TwoTower,User activity,Cold,29,0.4655172413793103,0.07964996509032311,0.4814025917740476,0.011588977594643318,Warm users split at median 86 training ratings; cold=0
+TwoTower,User activity,High,769,0.19934980494148247,0.06446672251166086,0.2231496652555178,0.11846510430079835,Warm users split at median 86 training ratings; cold=0
+TwoTower,User activity,Low,390,0.2064102564102564,0.06389910370164967,0.2229947356475707,0.041462786505279424,Warm users split at median 86 training ratings; cold=0
+TwoTower,Item popularity,Popular top 20%,1149,0.21479547432550045,0.0934846839116791,0.24242105773341655,0.5444015444015444,777 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue
+TwoTower,Item popularity,Long-tail other 80%,1075,0.00046511627906976747,0.0002244068995402631,0.00038994843005194104,0.01159047005795235,3106 catalogue items; matching relevant items only; original top-10 positions retained; group coverage uses group catalogue

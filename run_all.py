@@ -11,6 +11,7 @@ from src.evaluation import (compare_with_sklearn, evaluate_model, evaluate_recom
                             reference_recommendations, relevant_by_user)
 from src.model.simple_models import ItemKNN, MostPopular, UserKNN
 from src.model.implicit_models import ImplicitALS, ImplicitBPR
+from src.model.two_tower import TwoTower
 
 
 def parse_args():
@@ -119,15 +120,17 @@ def main():
     rows.append(result_row("ItemKNN", settings, knn_cfg["similarity_measure"], knn_cfg["k"],
                            evaluate(ItemKNN(**knn_cfg)), "deterministic; k and similarity tuned on validation"))
 
-
-    for name, key, cls in [("UserKNN", "user_knn", UserKNN),
-                           ("ImplicitALS", "implicit_als", ImplicitALS),
-                           ("ImplicitBPR", "implicit_bpr", ImplicitBPR)]:
+    # Part 2 models, tuned on validation in notebooks/03_part2.ipynb (30 Optuna trials each).
+    # Seed variability, paired tests, subgroups and the sparsity ablation: src/part2_analysis.py
+    for name, key, cls, origin in [("UserKNN", "user_knn", UserKNN, "self-implemented"),
+                                   ("ImplicitALS", "implicit_als", ImplicitALS, "library implicit"),
+                                   ("ImplicitBPR", "implicit_bpr", ImplicitBPR, "library implicit"),
+                                   ("TwoTower", "two_tower", TwoTower, "self-implemented")]:
         cfg = config["models"][key]
         print(f" - {name} ({cfg})")
         rows.append(result_row(name, str(cfg), cfg.get("similarity_measure", ""),
                                cfg.get("k", ""), evaluate(cls(**cfg)),
-                               "default params, not tuned yet"))
+                               f"{origin}; tuned on validation", seed=cfg.get("seed", "-")))
 
     results_path = args.output_dir / "results.csv"
     pd.DataFrame(rows).to_csv(results_path, index=False)
