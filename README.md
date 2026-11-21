@@ -16,6 +16,8 @@ Excel with results: https://drive.google.com/file/d/12fiw6fWJJNYX4NtnCuRQVqbtq5d
 - Python 3.11 (see `.python-version`)
 - Dependencies pinned in `requirements.txt`
 - Exact full environment in `requirements-lock.txt`
+- PyTorch is the CPU-only build: `requirements.txt` adds the PyTorch CPU package index, so pip does not
+  download the multi-GB CUDA build on Linux. No GPU is needed; all runs use one CPU thread and fixed seeds.
 
 ## Setup
 
@@ -93,6 +95,9 @@ The notebooks are committed with their outputs, so they can be read without runn
 - `notebooks/01_data_analysis.ipynb`: data characterization (the data figures and numbers in the report).
 - `notebooks/02_tuning.ipynb`: hyperparameter tuning on the validation split; the chosen values are in
   `config.yaml`. Re-running it takes about 3 hours.
+- `notebooks/03_part2.ipynb`: Part 2 tuning. Tunes UserKNN, ImplicitALS, ImplicitBPR and TwoTower on
+  validation (the same Optuna budget for every model, code in `src/tuning.py`). Re-running it takes about
+  2 hours.
 
 The random seed is `seed: 42` in `config.yaml`; the tuning notebook uses the same value. Both baseline
 models are deterministic.
