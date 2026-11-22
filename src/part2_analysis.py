@@ -285,6 +285,149 @@ def summarise_runs(runs: pd.DataFrame) -> pd.DataFrame:
                                ascending=[False, True]).reset_index(drop=True)
 
 
+# Columns of the sheets in templates/Recommender_Systems_Results_Template.xlsm
+PARADIGMS = {
+    "MostPopular": "Non-personalised (Part 1 baseline)",
+    "ItemKNN": "Neighbourhood CF (Part 1 baseline)",
+    "UserKNN": "Neighbourhood CF",
+    "ImplicitALS": "Latent-factor CF",
+    "ImplicitBPR": "Ranking-loss CF",
+    "TwoTower": "Neural (two-tower)",
+}
+
+
+def describe_settings(settings: dict) -> str:
+    """Hyperparameters as 'name=value, ...' (floats to 4 significant digits, seed in its own column)."""
+    return ", ".join(f"{key}={value:.4g}" if isinstance(value, float) else f"{key}={value}"
+                     for key, value in settings.items() if key != "seed")
+
+
+def seeds_text(name: str, seeds: str) -> str:
+    """The Seed(s) cell: '-' for deterministic models."""
+    return seeds if name in STOCHASTIC else "-"
+
+
+def write_template_tables(data: Dataset, cfg: dict, analysis_dir: Path, out_dir: Path) -> None:
+    """The three Part 2 sheets of the results template, built from the CSVs in `analysis_dir`.
+
+    Same columns as the template, so they can be pasted in directly. Needs no training.
+    """
+    overall = pd.read_csv(analysis_dir / "part2_overall.csv").set_index("model")
+    pairs = pd.read_csv(analysis_dir / "part2_paired_tests.csv")
+    seeds = pd.read_csv(analysis_dir / "part2_seed_variability.csv").set_index("model")
+    subgroups = pd.read_csv(analysis_dir / "part2_subgroups.csv")
+    names = [name for name in MODELS if name in overall.index]
+    seed_list = ", ".join(str(seed) for seed in cfg["part2"]["seeds"])
+
+    # The thresholds of the subgroups (recomputed: they are not stored in the CSVs)
+    s = split(data, cfg["split"])
+    history_ratings = pd.concat([s.train.ratings, s.val.ratings], ignore_index=True)
+    catalogue = set(data.movies["item_id"])
+    _, cutoff = user_activity_groups(history_ratings, [])
+    _, n_popular = popularity_buckets(history_ratings, catalogue)
+
+    def vs_most_popular(name: str) -> str:
+        pair = pairs[((pairs.model_a == name) & (pairs.model_b == "MostPopular")) |
+                     ((pairs.model_a == "MostPopular") & (pairs.model_b == name))]
+        if pair.empty:
+            return ""
+        pair = pair.iloc[0]
+        sign = 1 if pair.model_a == name else -1  # we want "model minus MostPopular"
+        low, high = sorted([sign * pair.difference_ci95_low, sign * pair.difference_ci95_high])
+        return (f"; paired t-test vs MostPopular: {sign * pair.mean_difference_a_minus_b:+.4f} "
+                f"[{low:+.4f}, {high:+.4f}], Holm p = {pair.p_value_holm:.2g}")
+
+    # Part 2 - Models: the seed-42 run, as in results.csv
+    rows = []
+    for name in names:
+        o = overall.loc[name]
+        variability = f"95% CI over users [{o.ndcg_ci95_low_users:.4f}, {o.ndcg_ci95_high_users:.4f}]"
+        if name in STOCHASTIC and name in seeds.index:
+            sv = seeds.loc[name]
+            variability += (f"; {int(sv.runs)} seeds: mean {sv.ndcg_at_10:.4f} "
+                            f"[{sv.ndcg_ci95_low:.4f}, {sv.ndcg_ci95_high:.4f}]")
+        else:
+            variability += "; deterministic"
+        variability += vs_most_popular(name)
+        tuning = ("tuned on validation in notebooks/02_tuning.ipynb (Part 1)"
+                  if name in ("MostPopular", "ItemKNN") else
+                  "tuned on validation in notebooks/03_part2.ipynb (30 Optuna trials)")
+        origin = ("self-implemented Part 2 model" if name in ("UserKNN", "TwoTower") else
+                  "library implicit" if name not in SELF_IMPLEMENTED else "Part 1 baseline")
+        rows.append({
+            "Model": name, "Paradigm": PARADIGMS[name],
+            "Self-implemented?": "Yes" if name in SELF_IMPLEMENTED else "No",
+            "Key hyperparameters": describe_settings(model_settings(name, cfg)),
+            "Precision@10": round(o.precision_at_10, 4), "Recall@10": round(o.recall_at_10, 4),
+            "NDCG@10": round(o.ndcg_at_10, 4), "Catalogue coverage": round(o.catalogue_coverage, 4),
+            "Variability / CI / test": f"NDCG@10 {variability}",
+            "Seed(s)": seeds_text(name, f"{cfg['seed']} (seed CI: {seed_list})"),
+            "Notes": (f"{origin}; {tuning}; trained on train + validation, "
+                      f"{int(o.users_evaluated)} test users; all 15 paired tests in "
+                      "part2_analysis/part2_paired_tests.csv"),
+        })
+    pd.DataFrame(rows).to_csv(out_dir / "results_part2_models.csv", index=False)
+
+    # Part 2 - Disaggregated
+    dimensions = {"User activity": "Low- vs high-activity users",
+                  "Item popularity": "Popular vs long-tail items"}
+    definitions = {
+        "Cold": "0 train + validation ratings",
+        "Low": f"1-{cutoff} train + validation ratings (<= median over all users)",
+        "High": f"> {cutoff} train + validation ratings (> median over all users)",
+        "Popular top 20%": (f"the {n_popular} most-rated movies in train + validation (top 20% of "
+                            f"{len(catalogue)}); only relevant test movies of this group count"),
+        "Long-tail other 80%": (f"the other {len(catalogue) - n_popular} movies; "
+                                "only relevant test movies of this group count"),
+    }
+    rows = []
+    for name in names:
+        part = subgroups[subgroups.model == name]
+        part = part.iloc[part["segment"].map(list(definitions).index).argsort()]  # Cold, Low, High, ...
+        for _, g in part.iterrows():
+            note = f"{int(g.users_evaluated)} test users"
+            if g.dimension == "Item popularity":
+                note += ("; users without a relevant movie of this group are left out; "
+                         "coverage = share of the group's movies recommended")
+            rows.append({
+                "Model": name, "Breakdown dimension": dimensions[g.dimension], "Group": g.segment,
+                "Definition / threshold": definitions[g.segment],
+                "Precision@10": round(g.precision_at_10, 4), "Recall@10": round(g.recall_at_10, 4),
+                "NDCG@10": round(g.ndcg_at_10, 4), "Catalogue coverage": round(g.catalogue_coverage, 4),
+                "Seed(s)": seeds_text(name, str(cfg["seed"])), "Notes": note,
+            })
+    pd.DataFrame(rows).to_csv(out_dir / "results_part2_disaggregated.csv", index=False)
+
+    # Part 2 - Sparsity: mean over the repetitions at each training fraction
+    if not (analysis_dir / "part2_sparsity.csv").exists():
+        return
+    sparsity = pd.read_csv(analysis_dir / "part2_sparsity.csv")
+    rows = []
+    for name in names:
+        for fraction in sorted(sparsity.training_fraction.unique(), reverse=True):
+            r = sparsity[(sparsity.model == name) & (sparsity.training_fraction == fraction)].iloc[0]
+            if fraction == 1.0:
+                seed_cell = seeds_text(name, r.seeds)
+                note = (f"mean over {int(r.runs)} seeds; " if r.runs > 1 else "deterministic; ") + \
+                    "all train + validation ratings"
+            else:
+                sample_seeds = ", ".join(str(seed) for seed in cfg["part2"]["sparsity_seeds"])
+                seed_cell = f"subsamples {sample_seeds}" + (" (also model seeds)" if name in STOCHASTIC else "")
+                note = (f"mean over {int(r.runs)} uniform random subsamples of the train + validation "
+                        "ratings; hyperparameters as tuned on the full data; movies rated in the "
+                        "dropped part are still excluded from recommendations")
+            if r.runs > 1:
+                note += f"; NDCG@10 95% CI [{r.ndcg_ci95_low:.4f}, {r.ndcg_ci95_high:.4f}]"
+            note += f"; rank {int(r.rank_by_mean_ndcg)} of {len(names)} at this fraction"
+            rows.append({
+                "Model": name, "Training interactions (%)": int(round(fraction * 100)),
+                "Precision@10": round(r.precision_at_10, 4), "Recall@10": round(r.recall_at_10, 4),
+                "NDCG@10": round(r.ndcg_at_10, 4), "Catalogue coverage": round(r.catalogue_coverage, 4),
+                "Seed(s)": seed_cell, "Notes": note,
+            })
+    pd.DataFrame(rows).to_csv(out_dir / "results_part2_sparsity.csv", index=False)
+
+
 def run_analysis(data: Dataset, cfg: dict, out_dir: Path, only: set[str] | None = None,
                  with_seeds: bool = True, with_sparsity: bool = True):
     """The whole Part 2 test evaluation; writes the CSVs listed in the README to `out_dir`.
@@ -394,8 +537,9 @@ def run_analysis(data: Dataset, cfg: dict, out_dir: Path, only: set[str] | None 
     if with_sparsity:
         summary.to_csv(out_dir / "part2_sparsity.csv", index=False)
     print(summary.to_string(index=False))
+    write_template_tables(data, cfg, out_dir, out_dir.parent)
     print(f"\nWritten to: {out_dir}  (popular item count: {n_popular})")
-    print("Copy the final tuned results into the official results template.")
+    print(f"Tables in the format of the results template: {out_dir.parent}/results_part2_*.csv")
 
 
 def main():
@@ -408,9 +552,14 @@ def main():
     parser.add_argument("--no-seeds", action="store_true",
                         help="skip re-running the stochastic models with extra seeds")
     parser.add_argument("--no-sparsity", action="store_true", help="skip the sparsity ablation")
+    parser.add_argument("--tables-only", action="store_true",
+                        help="only rebuild the results-template tables from the existing CSVs")
     args = parser.parse_args()
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     ds = Dataset.from_config(str(args.data_dir), cfg["load"])
+    if args.tables_only:
+        write_template_tables(ds, cfg, args.output_dir, args.output_dir.parent)
+        return
     run_analysis(ds, cfg, args.output_dir, only=set(args.models) if args.models else None,
                  with_seeds=not args.no_seeds, with_sparsity=not args.no_sparsity)
 

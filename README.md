@@ -117,6 +117,11 @@ Outputs in `results/part2_analysis/`:
 | `part2_sparsity.csv` | Mean and 95% CI per model and training fraction, with the model ranking per fraction. |
 | `part2_runs.csv` | Every single training run behind the two tables above. |
 
+The same results in the exact columns of the results template (`templates/Recommender_Systems_Results_Template.xlsm`),
+ready to paste into its Part 2 sheets, are written to `results/`: `results_part2_models.csv`,
+`results_part2_disaggregated.csv` and `results_part2_sparsity.csv`. They can be rebuilt from the CSVs above without
+training anything: `python -m src.part2_analysis --data-dir data/ml-1m --tables-only`.
+
 ## Notebooks
 
 The notebooks are committed with their outputs, so they can be read without running anything:
