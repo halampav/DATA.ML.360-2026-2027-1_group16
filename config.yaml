@@ -44,23 +44,43 @@ models:
     similarity_measure: cosine
     gamma: null       # no significance weighting
     min_support: 20   # see notebooks/02_tuning.ipynb, section 4
-  #TODO: The following values are only default and needs to be tuned
+  # Part 2 models: best validation NDCG@10 (users with history) in notebooks/03_part2.ipynb, section 1
+  # (30 Optuna trials each; all trials in results/part2_tuning_trials.csv)
   user_knn:
-    k: 50
-    similarity_measure: cosine
-    gamma: 50
-    min_support: 20
+    k: 131
+    similarity_measure: pearson
+    gamma: 100        # largest value in the search space
+    min_support: 100
   implicit_als:
-    factors: 64
-    regularization: 0.01
-    iterations: 15
-    alpha: 1.0
+    factors: 16       # lower edge of the search space (16-256)
+    regularization: 0.001306757868853338
+    alpha: 1.1514741512677193
+    iterations: 6     # near the lower edge (5-50)
     positive_threshold: 4
     seed: 42
   implicit_bpr:
-    factors: 64
-    learning_rate: 0.01
-    regularization: 0.01
-    iterations: 100
+    factors: 99
+    learning_rate: 0.0012368429194827427   # near the lower edge (0.001-0.2)
+    regularization: 8.597755025873098e-05
+    iterations: 127
     positive_threshold: 4
     seed: 42
+  two_tower:
+    dim: 64
+    embedding_dim: 32
+    hidden: 256       # largest value in the search space
+    epochs: 9
+    batch_size: 1024
+    learning_rate: 0.0003646439558980723
+    weight_decay: 5.169879442298538e-06
+    temperature: 0.0314799191252873
+    id_dropout: 0.40109849037701983
+    positive_threshold: 4
+    seed: 42
+
+part2:
+  tuning_trials: 30  # Optuna trials per model in notebooks/03_part2.ipynb, the same budget as ItemKNN in Part 1
+  # src/part2_analysis.py (test evaluation of the tuned models)
+  seeds: [42, 43, 44, 45, 46]   # stochastic models (ALS, BPR, TwoTower) retrained with each seed
+  sparsity_fractions: [0.5, 0.2]  # share of the train + validation ratings kept in the ablation
+  sparsity_seeds: [42, 43, 44]  # one random subsample per seed (also the model seed)

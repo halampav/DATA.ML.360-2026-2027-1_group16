@@ -16,6 +16,8 @@ Excel with results: https://drive.google.com/file/d/12fiw6fWJJNYX4NtnCuRQVqbtq5d
 - Python 3.11 (see `.python-version`)
 - Dependencies pinned in `requirements.txt`
 - Exact full environment in `requirements-lock.txt`
+- PyTorch is the CPU-only build: `requirements.txt` adds the PyTorch CPU package index, so pip does not
+  download the multi-GB CUDA build on Linux. No GPU is needed; all runs use one CPU thread and fixed seeds.
 
 ## Setup
 
@@ -62,7 +64,7 @@ The best option is to store it in the git-ignored `data/` folder inside the proj
 python run_all.py --data-dir data/ml-1m
 ```
 
-It takes about 5 minutes.
+It takes about 10 minutes.
 
 | Argument | Description | Default |
 |---|---|---|
@@ -73,8 +75,8 @@ It takes about 5 minutes.
 What the command does:
 
 1. Splits the data temporally (train / validation / test).
-2. Trains the final baseline configurations from `config.yaml` on train + validation and evaluates
-   them on the test split.
+2. Trains the final baseline and Part 2 configurations from `config.yaml` on train + validation and
+   evaluates them on the test split.
 3. Computes a random and a perfect ranker on the same test users as reference bounds.
 4. Checks our metric implementations (`src/evaluation.py`) against scikit-learn.
 
@@ -86,6 +88,40 @@ Outputs in `results/`:
 | `reference_bounds.csv` | Random and perfect ranker on the same test users. |
 | `metric_check.csv` | Largest difference between our metrics and scikit-learn's. |
 
+### Part 2 analysis
+
+```bash
+python -m src.part2_analysis --data-dir data/ml-1m
+```
+
+Trains the tuned Part 2 models (and the two baselines) on train + validation and evaluates them on
+test. Takes about 40 minutes; `--no-seeds` and `--no-sparsity` skip the slow parts, `--models`
+selects models.
+
+1. Overall metrics with a 95% CI over test users, and the disaggregated results by user activity and
+   item popularity.
+2. Paired t-tests on per-user NDCG@10 for every pair of models (Holm-corrected for 15 comparisons).
+3. Seed variability: ALS, BPR and TwoTower retrained with the 5 seeds in `part2.seeds`.
+4. Sparsity ablation: every model trained on 50% and 20% of the train + validation ratings (3 random
+   subsamples each, `part2.sparsity_seeds`) with the same hyperparameters, evaluated on the full test set.
+
+Outputs in `results/part2_analysis/`:
+
+| File | Content |
+|---|---|
+| `part2_overall.csv` | Test metrics of every model (seed 42) with the user CI. |
+| `part2_subgroups.csv` | Metrics by user activity (cold / low / high) and item popularity (top 20% / rest). |
+| `part2_per_user_ndcg.csv` | NDCG@10 of every model for every test user (input of the paired tests). |
+| `part2_paired_tests.csv` | Paired t-test, mean difference with 95% CI and Holm-adjusted p-value per model pair. |
+| `part2_seed_variability.csv` | Mean, 95% CI, min and max over seeds (stochastic models). |
+| `part2_sparsity.csv` | Mean and 95% CI per model and training fraction, with the model ranking per fraction. |
+| `part2_runs.csv` | Every single training run behind the two tables above. |
+
+The same results in the exact columns of the results template (`templates/Recommender_Systems_Results_Template.xlsm`),
+ready to paste into its Part 2 sheets, are written to `results/`: `results_part2_models.csv`,
+`results_part2_disaggregated.csv` and `results_part2_sparsity.csv`. They can be rebuilt from the CSVs above without
+training anything: `python -m src.part2_analysis --data-dir data/ml-1m --tables-only`.
+
 ## Notebooks
 
 The notebooks are committed with their outputs, so they can be read without running anything:
@@ -93,6 +129,12 @@ The notebooks are committed with their outputs, so they can be read without runn
 - `notebooks/01_data_analysis.ipynb`: data characterization (the data figures and numbers in the report).
 - `notebooks/02_tuning.ipynb`: hyperparameter tuning on the validation split; the chosen values are in
   `config.yaml`. Re-running it takes about 3 hours.
+- `notebooks/03_part2.ipynb`: Part 2 tuning. Tunes UserKNN, ImplicitALS, ImplicitBPR and TwoTower on
+  validation (the same Optuna budget for every model, code in `src/tuning.py`). Re-running it takes about
+  2 hours.
+- `notebooks/04_part2_results.ipynb`: plots of the Part 2 test results (overall, paired tests, seeds,
+  subgroups, sparsity). Only reads the CSVs from `src/part2_analysis.py`, runs in seconds; the figures are
+  also saved to `results/part2_analysis/figures/`.
 
 The random seed is `seed: 42` in `config.yaml`; the tuning notebook uses the same value. Both baseline
 models are deterministic.

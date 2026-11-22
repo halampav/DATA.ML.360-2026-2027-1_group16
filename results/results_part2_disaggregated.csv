@@ -1,0 +1,31 @@
+Model,Breakdown dimension,Group,Definition / threshold,Precision@10,Recall@10,NDCG@10,Catalogue coverage,Seed(s),Notes
+MostPopular,Low- vs high-activity users,Cold,0 train + validation ratings,0.4345,0.073,0.441,0.0026,-,29 test users
+MostPopular,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.2067,0.0765,0.223,0.0064,-,390 test users
+MostPopular,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.1818,0.0612,0.2041,0.0322,-,769 test users
+MostPopular,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.2028,0.0938,0.2291,0.1609,-,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+MostPopular,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.0,0.0,0.0,0.0,-,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ItemKNN,Low- vs high-activity users,Cold,0 train + validation ratings,0.0,0.0,0.0,0.0,-,29 test users
+ItemKNN,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.0862,0.0276,0.0866,0.0742,-,390 test users
+ItemKNN,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.0957,0.0337,0.1044,0.1545,-,769 test users
+ItemKNN,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.0775,0.0344,0.0827,0.3758,-,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ItemKNN,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.0169,0.016,0.0217,0.1033,-,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+UserKNN,Low- vs high-activity users,Cold,0 train + validation ratings,0.0,0.0,0.0,0.0,-,29 test users
+UserKNN,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.1715,0.0499,0.1884,0.0276,-,390 test users
+UserKNN,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.1571,0.0445,0.1759,0.0399,-,769 test users
+UserKNN,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.162,0.0641,0.1838,0.1506,-,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+UserKNN,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.0015,0.0005,0.0011,0.0167,-,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ImplicitALS,Low- vs high-activity users,Cold,0 train + validation ratings,0.0,0.0,0.0,0.0,42,29 test users
+ImplicitALS,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.2033,0.0734,0.2242,0.0713,42,390 test users
+ImplicitALS,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.2126,0.0762,0.2417,0.1301,42,769 test users
+ImplicitALS,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.2109,0.1059,0.2444,0.6409,42,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ImplicitALS,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.0005,0.0001,0.0005,0.0058,42,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ImplicitBPR,Low- vs high-activity users,Cold,0 train + validation ratings,0.0,0.0,0.0,0.0,42,29 test users
+ImplicitBPR,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.2251,0.0764,0.2467,0.0386,42,390 test users
+ImplicitBPR,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.1997,0.0626,0.2244,0.1331,42,769 test users
+ImplicitBPR,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.2091,0.0949,0.2386,0.6062,42,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+ImplicitBPR,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.001,0.0004,0.0008,0.0145,42,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+TwoTower,Low- vs high-activity users,Cold,0 train + validation ratings,0.4655,0.0796,0.4814,0.0116,42,29 test users
+TwoTower,Low- vs high-activity users,Low,1-86 train + validation ratings (<= median over all users),0.2064,0.0639,0.223,0.0415,42,390 test users
+TwoTower,Low- vs high-activity users,High,> 86 train + validation ratings (> median over all users),0.1993,0.0645,0.2231,0.1185,42,769 test users
+TwoTower,Popular vs long-tail items,Popular top 20%,the 777 most-rated movies in train + validation (top 20% of 3883); only relevant test movies of this group count,0.2148,0.0935,0.2424,0.5444,42,1149 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended
+TwoTower,Popular vs long-tail items,Long-tail other 80%,the other 3106 movies; only relevant test movies of this group count,0.0005,0.0002,0.0004,0.0116,42,1075 test users; users without a relevant movie of this group are left out; coverage = share of the group's movies recommended

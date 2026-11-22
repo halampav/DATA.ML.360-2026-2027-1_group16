@@ -1,3 +1,5 @@
+# CPU-only PyTorch: without this index, pip on Linux downloads the multi-GB CUDA build
+--extra-index-url https://download.pytorch.org/whl/cpu
 ipykernel==7.4.0
 matplotlib==3.11.2
 numpy==2.4.6
@@ -7,3 +9,4 @@ PyYAML==6.0.3
 scikit-learn==1.9.1
 scipy==1.17.1
 implicit==0.7.3
+torch==2.14.1
