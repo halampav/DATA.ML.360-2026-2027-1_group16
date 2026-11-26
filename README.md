@@ -142,3 +142,13 @@ models are deterministic.
 ## Configuration (`config.yaml`)
 
 All names and parameters are in `config.yaml` so that nothing needs to be changed in the code.
+
+## Reproduce Parts 1–3 with one command
+
+After installing the requirements and extracting MovieLens 1M into `data/ml-1m/`, run from the repository root:
+
+```bash
+python run_project.py --data-dir data/ml-1m
+```
+
+This first runs the existing, unchanged `run_all.py` (Parts 1–2 final evaluation), then executes the code cells from `notebooks/05_part3_mmr.ipynb` (Part 3). The original notebook, model and earlier results code are not modified. Part 3 writes `results/part3_validation_results.csv`, `results/part3_test_results.csv` and `results/part3_accuracy_diversity.png`. The notebook currently expects default project-relative paths; the full-command wrapper requires `data/ml-1m`, `config.yaml` and `results/`. Part 2 additional analysis remains available separately using the existing `python -m src.part2_analysis --data-dir data/ml-1m` command.
