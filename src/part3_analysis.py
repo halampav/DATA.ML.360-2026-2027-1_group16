@@ -1,18 +1,21 @@
-"""Part 3, Track A: MMR re-ranking of the Part 2 ALS model, and what it costs.
+"""Part 3, Track A: the full evaluation of MMR re-ranking of the Part 2 ALS model.
 
 python -m src.part3_analysis --data-dir data/ml-1m
 
+Extends notebooks/05_part3_mmr.ipynb (which compares 4 lambdas) with the same `mmr_rerank` and
+metric functions from src/part3_mmr.py:
+
 1. Validation sweep: ALS trained on train, lambda swept over `part3.lambdas`, evaluated on the
-   validation users with training history (the Part 2 tuning objective). Lambda is chosen here.
+   validation users with training history (as in notebook 05 and the Part 2 tuning objective).
 2. Test sweep: ALS trained on train + validation, the same lambdas, evaluated on all test users
    (as in Part 2, cold users included). This is the accuracy-diversity frontier we report.
-3. Paired t-tests on test: every lambda against lambda = 1 (= plain ALS), per-user NDCG@10.
+3. Paired t-tests on test: every lambda against lambda = 1 (= plain ALS), per user.
 4. Who pays: the chosen lambda against plain ALS per user group (activity, taste breadth), and
-   which genres and how many popular movies gain or lose exposure.
+   which genres gain or lose exposure.
 5. Candidate-pool ablation: the chosen lambda with pools of different size.
 
 Outputs go to results/part3_analysis/; the rows of the results template to
-results/results_part3_diversity.csv. The figures are drawn by notebooks/05_part3_mmr.ipynb.
+results/results_part3_diversity.csv. The figures are drawn by notebooks/06_part3_results.ipynb.
 """
 from __future__ import annotations
 
@@ -32,54 +35,55 @@ from src.model.implicit_models import ImplicitALS
 from src.part2_analysis import holm, mean_ci, per_user_metrics, popularity_buckets, user_activity_groups
 from src.part3_mmr import (
     calibration_error,
-    candidate_pool,
+    diversity,
     genre_distribution,
-    genre_vectors,
-    gini_index,
-    intra_list_diversity,
-    mmr_select,
+    genre_sets,
+    gini_exposure,
+    mmr_rerank,
 )
 
-BASE_MODEL = "ImplicitALS"
-ITEM_DISTANCE = "1 - Jaccard similarity of binary genre vectors"
+ITEM_DISTANCE = "1 - Jaccard similarity of the genre sets"
 
 
-def build_pools(model, users: list[int], size: int, vectors: pd.DataFrame) -> dict:
-    """Candidate pool of every user, computed once and re-used for every lambda and pool size."""
-    return {u: candidate_pool(model, u, size, vectors) for u in users}
+class Genres:
+    """The genre information every metric needs: {item: set of genres} and the list of all genres."""
+
+    def __init__(self, movies: pd.DataFrame):
+        self.movies = movies
+        self.map = genre_sets(movies)
+        self.all = sorted(set().union(*self.map.values()))
+
+    def distribution(self, items):
+        return genre_distribution(items, self.map, self.all)
 
 
-def rerank(pools: dict, lambda_rel: float, k: int, pool_size: int) -> dict[int, list[int]]:
-    """MMR top-k list of every user, using the first `pool_size` candidates of the pool.
-
-    The pool is the base ranking, so its first `pool_size` items are the base top-`pool_size`.
-    """
-    recs = {}
-    for u, (items, scores, similarity) in pools.items():
-        if not items:
-            recs[u] = []
-            continue
-        n = min(pool_size, len(items))
-        picked = mmr_select(scores[:n], similarity[:n, :n], k, lambda_rel)
-        recs[u] = [items[p] for p in picked]
-    return recs
+def rerank_all(model, users: list[int], genres: Genres, lambda_rel: float, k: int,
+               candidates: int) -> dict[int, list[int]]:
+    """MMR top-k list of every user (an empty list for users ALS cannot rank)."""
+    return {u: mmr_rerank(model, u, genres.movies, top_k=k, candidate_count=candidates,
+                          lambda_rel=lambda_rel) for u in users}
 
 
-def liked_profiles(history: pd.DataFrame, threshold: int, vectors: pd.DataFrame) -> dict:
+def liked_profiles(history: pd.DataFrame, threshold: int, genres: Genres) -> dict:
     """Genre distribution of the movies every user liked (rating >= threshold) in `history`."""
     liked = history[history["rating"] >= threshold].groupby("user_id")["item_id"].apply(list)
-    return {u: genre_distribution(items, vectors) for u, items in liked.items()}
+    return {u: genres.distribution(items) for u, items in liked.items()}
 
 
 def per_user_scores(recs: dict, relevant: dict, profiles: dict, popular: set[int],
-                    vectors: pd.DataFrame, k: int) -> pd.DataFrame:
-    """Accuracy, diversity, calibration and popular share of every evaluated user's list."""
+                    genres: Genres, k: int) -> pd.DataFrame:
+    """Accuracy, diversity, calibration and popular share of every evaluated user's list.
+
+    Diversity, calibration and popular share are NaN for empty lists (cold users), so they are
+    averaged over the users who got a list, as in notebook 05.
+    """
     scores = per_user_metrics(recs, relevant, k)
-    scores["ild"] = [intra_list_diversity(recs[u][:k], vectors) for u in scores["user_id"]]
-    scores["calibration_error"] = [calibration_error(profiles.get(u), recs[u][:k], vectors)
-                                   for u in scores["user_id"]]
-    scores["popular_share"] = [np.mean([i in popular for i in recs[u][:k]]) if recs[u] else np.nan
-                               for u in scores["user_id"]]
+    users = scores["user_id"]
+    scores["ild"] = [diversity(recs[u], genres.map) if len(recs[u]) >= 2 else np.nan for u in users]
+    scores["calibration_error"] = [calibration_error(profiles.get(u), genres.distribution(recs[u]))
+                                   for u in users]
+    scores["popular_share"] = [np.mean([i in popular for i in recs[u]]) if recs[u] else np.nan
+                               for u in users]
     return scores
 
 
@@ -93,30 +97,33 @@ def summarise(scores: pd.DataFrame, recs: dict, catalogue: set[int], k: int) -> 
         "ild": scores["ild"].mean(),                       # NaN (empty lists) are skipped
         "users_with_ild": int(scores["ild"].notna().sum()),
         "coverage": catalogue_coverage(recs, catalogue, k),
-        "gini": gini_index(recs, catalogue, k),
+        "gini": gini_exposure(recs, catalogue),
         "calibration_error": scores["calibration_error"].mean(),
         "users_with_calibration": int(scores["calibration_error"].notna().sum()),
         "popular_share": scores["popular_share"].mean(),
     }
 
 
-def sweep(split_name: str, pools: dict, history: pd.DataFrame, relevant: dict,
-          vectors: pd.DataFrame, catalogue: set[int], cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Evaluates every lambda on one split. Returns the frontier and the per-user scores."""
-    p3, k = cfg["part3"], cfg["evaluation"]["k"]
-    threshold = cfg["evaluation"]["relevance_threshold"]
-    profiles = liked_profiles(history, threshold, vectors)
-    popular = popularity_buckets(history, catalogue)[0]["Popular top 20%"]
+def sweep(split_name: str, model, history: pd.DataFrame, relevant: dict, genres: Genres,
+          catalogue: set[int], cfg: dict):
+    """Evaluates every lambda on one split.
 
-    frontier, per_user = [], []
+    Returns the frontier, the per-user scores and the recommendations of every lambda.
+    """
+    p3, k = cfg["part3"], cfg["evaluation"]["k"]
+    profiles = liked_profiles(history, cfg["evaluation"]["relevance_threshold"], genres)
+    popular = popularity_buckets(history, catalogue)[0]["Popular top 20%"]
+    users = sorted(relevant)
+    frontier, per_user, recs_by_lambda = [], [], {}
     for lam in p3["lambdas"]:
-        recs = rerank(pools, lam, k, p3["candidates"])
-        scores = per_user_scores(recs, relevant, profiles, popular, vectors, k)
+        recs = rerank_all(model, users, genres, lam, k, p3["candidates"])
+        scores = per_user_scores(recs, relevant, profiles, popular, genres, k)
         frontier.append({"split": split_name, "lambda": lam, **summarise(scores, recs, catalogue, k)})
         per_user.append(scores.assign(split=split_name, **{"lambda": lam}))
+        recs_by_lambda[lam] = recs
         print(f"   {split_name} lambda={lam:.1f}: NDCG@10={frontier[-1]['ndcg']:.4f} "
               f"ILD={frontier[-1]['ild']:.4f}", flush=True)
-    return pd.DataFrame(frontier), pd.concat(per_user, ignore_index=True)
+    return pd.DataFrame(frontier), pd.concat(per_user, ignore_index=True), recs_by_lambda
 
 
 def paired_tests(per_user: pd.DataFrame, metric: str) -> pd.DataFrame:
@@ -196,33 +203,32 @@ def who_pays(per_user: pd.DataFrame, history: pd.DataFrame, profiles: dict, chos
     return pd.DataFrame(rows)
 
 
-def genre_exposure(recs_by_lambda: dict, vectors: pd.DataFrame, catalogue: set[int]) -> pd.DataFrame:
-    """Share of all recommendation slots that goes to every genre, per lambda.
+def genre_exposure(recs_by_lambda: dict, genres: Genres, catalogue: set[int]) -> pd.DataFrame:
+    """Share of all recommended genre labels that goes to every genre, per lambda.
 
-    Uses the same per-movie split of the weight over its genres as the calibration error.
-    The catalogue share of every genre is added for comparison.
+    Counted like the calibration error (every genre of a recommended movie counts once).
+    The same share over the whole catalogue is added for comparison.
     """
-    rows = {"catalogue": genre_distribution(sorted(catalogue), vectors)}
+    rows = {"catalogue": genres.distribution(sorted(catalogue))}
     for lam, recs in recs_by_lambda.items():
-        rows[f"lambda={lam:.1f}"] = genre_distribution([i for items in recs.values() for i in items], vectors)
-    return pd.DataFrame(rows, index=vectors.columns).rename_axis("genre").reset_index()
+        rows[f"lambda={lam:.1f}"] = genres.distribution([i for items in recs.values() for i in items])
+    return pd.DataFrame(rows, index=genres.all).rename_axis("genre").reset_index()
 
 
-def pool_ablation(model, history: pd.DataFrame, users: list[int], relevant: dict,
-                  vectors: pd.DataFrame, catalogue: set[int], cfg: dict) -> pd.DataFrame:
-    """The chosen lambda (and plain ALS) with candidate pools of different size."""
+def pool_ablation(model, history: pd.DataFrame, relevant: dict, genres: Genres,
+                  catalogue: set[int], cfg: dict) -> pd.DataFrame:
+    """The chosen lambda with candidate pools of different size (plain ALS does not depend on it)."""
     p3, k = cfg["part3"], cfg["evaluation"]["k"]
-    threshold = cfg["evaluation"]["relevance_threshold"]
-    pools = build_pools(model, users, max(p3["pool_sizes"]), vectors)
-    profiles = liked_profiles(history, threshold, vectors)
+    profiles = liked_profiles(history, cfg["evaluation"]["relevance_threshold"], genres)
     popular = popularity_buckets(history, catalogue)[0]["Popular top 20%"]
+    users = sorted(relevant)
     rows = []
     for size in p3["pool_sizes"]:
-        for lam in sorted({1.0, p3["chosen_lambda"]}):
-            recs = rerank(pools, lam, k, size)
-            scores = per_user_scores(recs, relevant, profiles, popular, vectors, k)
-            rows.append({"pool_size": size, "lambda": lam, **summarise(scores, recs, catalogue, k)})
-        print(f"   pool {size}: done", flush=True)
+        recs = rerank_all(model, users, genres, p3["chosen_lambda"], k, size)
+        scores = per_user_scores(recs, relevant, profiles, popular, genres, k)
+        rows.append({"pool_size": size, "lambda": p3["chosen_lambda"],
+                     **summarise(scores, recs, catalogue, k)})
+        print(f"   pool {size}: NDCG@10={rows[-1]['ndcg']:.4f} coverage={rows[-1]['coverage']:.4f}", flush=True)
     return pd.DataFrame(rows)
 
 
@@ -251,8 +257,9 @@ def template_rows(test: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             "Catalogue coverage": round(r["coverage"], 4),
             "Gini": round(r["gini"], 4),
             "Calibration error": round(r["calibration_error"], 4),
-            "Notes": "; ".join(x for x in [note, f"{int(r['users'])} test users, {int(r['users'] - r['users_with_ild'])} cold users get no list",
-                                           "calibration error = Jensen-Shannon divergence (base 2)"] if x),
+            "Notes": "; ".join(x for x in [note, f"{int(r['users'])} test users, "
+                                           f"{int(r['users'] - r['users_with_ild'])} cold users get no list",
+                                           "calibration error = squared Jensen-Shannon distance (base 2)"] if x),
         })
     return pd.DataFrame(rows)
 
@@ -260,23 +267,21 @@ def template_rows(test: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 def run_analysis(data: Dataset, cfg: dict, out_dir: Path) -> None:
     """Runs all Part 3 experiments and writes the CSVs (see the module docstring)."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    k, threshold = cfg["evaluation"]["k"], cfg["evaluation"]["relevance_threshold"]
+    threshold = cfg["evaluation"]["relevance_threshold"]
     chosen = cfg["part3"]["chosen_lambda"]
     s = split(data, cfg["split"])
-    vectors = genre_vectors(data.movies)
+    genres = Genres(data.movies)
     catalogue = set(data.movies["item_id"])
     start = time.time()
 
-    # 1. validation: ALS trained on train, users with training history (Part 2 tuning objective)
+    # 1. validation: ALS trained on train, users with training history (as in notebook 05)
     print("validation sweep (ALS trained on train):", flush=True)
     model = ImplicitALS(**cfg["models"]["implicit_als"])
     model.train(s.train)
     val_relevant = relevant_by_user(s.val.ratings, threshold)
     train_users = set(s.train.ratings["user_id"])
-    val_users = sorted(u for u in val_relevant if u in train_users)
-    pools = build_pools(model, val_users, cfg["part3"]["candidates"], vectors)
-    val_frontier, _ = sweep("validation", pools, s.train.ratings,
-                            {u: val_relevant[u] for u in val_users}, vectors, catalogue, cfg)
+    val_relevant = {u: r for u, r in val_relevant.items() if u in train_users}
+    val_frontier, _, _ = sweep("validation", model, s.train.ratings, val_relevant, genres, catalogue, cfg)
 
     # 2. test: ALS trained on train + validation, all test users with a relevant movie
     print("test sweep (ALS trained on train + validation):", flush=True)
@@ -284,10 +289,8 @@ def run_analysis(data: Dataset, cfg: dict, out_dir: Path) -> None:
     model = ImplicitALS(**cfg["models"]["implicit_als"])
     model.train(history)
     test_relevant = relevant_by_user(s.test.ratings, threshold)
-    test_users = sorted(test_relevant)
-    pools = build_pools(model, test_users, cfg["part3"]["candidates"], vectors)
-    test_frontier, per_user = sweep("test", pools, history.ratings, test_relevant,
-                                    vectors, catalogue, cfg)
+    test_frontier, per_user, recs_by_lambda = sweep("test", model, history.ratings, test_relevant,
+                                                    genres, catalogue, cfg)
     pd.concat([val_frontier, test_frontier]).to_csv(out_dir / "part3_frontier.csv", index=False)
     per_user.to_csv(out_dir / "part3_per_user.csv", index=False)
 
@@ -296,14 +299,14 @@ def run_analysis(data: Dataset, cfg: dict, out_dir: Path) -> None:
     tests.to_csv(out_dir / "part3_paired_tests.csv", index=False)
 
     # 4. who pays: user groups, genre exposure
-    profiles = liked_profiles(history.ratings, threshold, vectors)
+    profiles = liked_profiles(history.ratings, threshold, genres)
     who_pays(per_user, history.ratings, profiles, chosen).to_csv(out_dir / "part3_who_pays.csv", index=False)
-    recs_by_lambda = {lam: rerank(pools, lam, k, cfg["part3"]["candidates"]) for lam in [1.0, chosen, 0.0]}
-    genre_exposure(recs_by_lambda, vectors, catalogue).to_csv(out_dir / "part3_genre_exposure.csv", index=False)
+    exposure = {lam: recs_by_lambda[lam] for lam in [1.0, chosen, 0.0]}
+    genre_exposure(exposure, genres, catalogue).to_csv(out_dir / "part3_genre_exposure.csv", index=False)
 
     # 5. candidate-pool size
     print("candidate-pool ablation (test):", flush=True)
-    pool_ablation(model, history.ratings, test_users, test_relevant, vectors, catalogue,
+    pool_ablation(model, history.ratings, test_relevant, genres, catalogue,
                   cfg).to_csv(out_dir / "part3_pool_size.csv", index=False)
 
     template_rows(test_frontier, cfg).to_csv(out_dir.parent / "results_part3_diversity.csv", index=False)

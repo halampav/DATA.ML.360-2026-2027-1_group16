@@ -128,12 +128,11 @@ training anything: `python -m src.part2_analysis --data-dir data/ml-1m --tables-
 python -m src.part3_analysis --data-dir data/ml-1m
 ```
 
-Re-ranks the Part 2 ALS model with MMR (Maximal Marginal Relevance) over the ALS top-100, using binary genre
-vectors and the item distance 1 - Jaccard similarity. Takes about 40 seconds. Settings are under `part3` in
-`config.yaml`. The MMR code and the metrics are in `src/part3_mmr.py`.
+The full evaluation of the MMR re-ranking from `notebooks/05_part3_mmr.ipynb`, using the same `mmr_rerank` and
+metric functions (`src/part3_mmr.py`). Takes about 2 minutes. Settings are under `part3` in `config.yaml`.
 
-1. Validation sweep over λ (`part3.lambdas`, 1 = plain ALS, 0 = only diversity); λ is chosen here
-   (`part3.chosen_lambda`).
+1. Validation sweep over all λ in `part3.lambdas` (1 = plain ALS, 0 = only diversity); the chosen λ is
+   `part3.chosen_lambda`.
 2. Test sweep with the same λ values (the accuracy-diversity frontier): P/R/NDCG@10, intra-list diversity,
    catalogue coverage, Gini, calibration error and the share of recommendations to the 20% most-rated movies.
 3. Paired t-tests of every λ against plain ALS (NDCG@10, ILD, calibration error; Holm-corrected).
@@ -148,8 +147,8 @@ Outputs in `results/part3_analysis/`:
 | `part3_per_user.csv` | Per-user test metrics for every λ (input of the paired tests). |
 | `part3_paired_tests.csv` | Every λ against plain ALS: mean difference with 95% CI and Holm-adjusted p-value. |
 | `part3_who_pays.csv` | Chosen λ against plain ALS per user group. |
-| `part3_genre_exposure.csv` | Share of recommendation slots per genre (plain ALS, chosen λ, λ = 0) and in the catalogue. |
-| `part3_pool_size.csv` | Chosen λ and plain ALS with different candidate-pool sizes. |
+| `part3_genre_exposure.csv` | Genre shares of the recommendations (plain ALS, chosen λ, λ = 0) and of the catalogue. |
+| `part3_pool_size.csv` | Chosen λ with different candidate-pool sizes. |
 
 The test frontier in the columns of the "Part 3A - Diversity" sheet of the results template is written to
 `results/results_part3_diversity.csv`.
@@ -167,9 +166,11 @@ The notebooks are committed with their outputs, so they can be read without runn
 - `notebooks/04_part2_results.ipynb`: plots of the Part 2 test results (overall, paired tests, seeds,
   subgroups, sparsity). Only reads the CSVs from `src/part2_analysis.py`, runs in seconds; the figures are
   also saved to `results/part2_analysis/figures/`.
-- `notebooks/05_part3_mmr.ipynb`: plots and discussion of the Part 3 results (frontier, paired tests, coverage /
-  Gini / calibration / popularity, who pays, candidate pool). Only reads the CSVs from `src/part3_analysis.py`;
-  the figures are also saved to `results/part3_analysis/figures/`.
+- `notebooks/05_part3_mmr.ipynb`: Part 3 MMR re-ranking of ALS: four λ values on validation, choice of λ and the
+  test check.
+- `notebooks/06_part3_results.ipynb`: plots and discussion of the full Part 3 evaluation (frontier, paired tests,
+  coverage / Gini / calibration / popularity, who pays, candidate pool). Only reads the CSVs from
+  `src/part3_analysis.py`; the figures are also saved to `results/part3_analysis/figures/`.
 
 The random seed is `seed: 42` in `config.yaml`; the tuning notebook uses the same value. Both baseline
 models are deterministic.
@@ -177,3 +178,13 @@ models are deterministic.
 ## Configuration (`config.yaml`)
 
 All names and parameters are in `config.yaml` so that nothing needs to be changed in the code.
+
+## Reproduce Parts 1–3 with one command
+
+After installing the requirements and extracting MovieLens 1M into `data/ml-1m/`, run from the repository root:
+
+```bash
+python run_project.py --data-dir data/ml-1m
+```
+
+This first runs the existing, unchanged `run_all.py` (Parts 1–2 final evaluation), then executes the code cells from `notebooks/05_part3_mmr.ipynb` (Part 3), and finally the full Part 3 evaluation `python -m src.part3_analysis` (see below). The original notebook, model and earlier results code are not modified. Part 3 writes `results/part3_validation_results.csv`, `results/part3_test_results.csv` and `results/part3_accuracy_diversity.png`. The notebook currently expects default project-relative paths; the full-command wrapper requires `data/ml-1m`, `config.yaml` and `results/`. Part 2 additional analysis remains available separately using the existing `python -m src.part2_analysis --data-dir data/ml-1m` command.
