@@ -1,4 +1,4 @@
-"""Run the existing Group 16 baseline/Part 2 evaluation and Part 3 notebook.
+"""Run the existing Group 16 baseline/Part 2 evaluation, the Part 3 notebook and the Part 3 analysis.
 
 Usage (from repository root): python run_project.py --data-dir data/ml-1m
 
@@ -54,7 +54,13 @@ def main():
             code = "".join(cell.get("source", []))
             if code.strip():
                 exec(compile(code, f"{notebook.name}:cell_{i}", "exec"), scope)
-    print("\nDone. Part 3 CSVs and plot are in results/", flush=True)
+    # Part 3 full evaluation (all lambdas, paired tests, who pays, pool size) built on the same code.
+    subprocess.run([
+        sys.executable, "-m", "src.part3_analysis",
+        "--data-dir", str(data_dir),
+        "--config", str(config),
+    ], cwd=root, check=True)
+    print("\nDone. Part 3 CSVs and plots are in results/ and results/part3_analysis/", flush=True)
 
 
 if __name__ == "__main__":
