@@ -84,3 +84,10 @@ part2:
   seeds: [42, 43, 44, 45, 46]   # stochastic models (ALS, BPR, TwoTower) retrained with each seed
   sparsity_fractions: [0.5, 0.2]  # share of the train + validation ratings kept in the ablation
   sparsity_seeds: [42, 43, 44]  # one random subsample per seed (also the model seed)
+
+part3:
+  # src/part3_analysis.py (Track A: MMR re-ranking of the Part 2 ALS model)
+  candidates: 100     # MMR re-ranks the ALS top-100
+  lambdas: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]  # 1 = plain ALS, 0 = only diversity
+  chosen_lambda: 0.7  # operating point, chosen on the validation frontier
+  pool_sizes: [10, 20, 50, 100, 200, 500]  # candidate-pool ablation at the chosen lambda
